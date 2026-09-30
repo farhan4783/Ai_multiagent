@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-marl"
+version = "0.1.0"
+description = "Intelligent Technical Project Management and Dynamic Scheduling using STGAT and MARL"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "AI Multi-Agent Team"}
+]
+dependencies = [
+    "pydantic>=2.0.0",
+    "networkx>=3.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "black",
+    "ruff",
+    "mypy"
+]
+ml = [
+    "torch>=2.0.0",
+    "torch-geometric"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]
