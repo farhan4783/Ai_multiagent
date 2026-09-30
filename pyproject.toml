@@ -17,6 +17,9 @@ dependencies = [
     "networkx>=3.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
+    "gymnasium>=1.0.0",
+    "pettingzoo>=1.24.0",
+    "ortools>=9.0.0",
 ]
 
 [project.optional-dependencies]

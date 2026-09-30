@@ -113,7 +113,7 @@ class AONGraphBuilder:
             if t.is_critical
         ]
 
-        logger.info(f"CPM Completed: Makespan={project_makespan:.2f} hrs, Critical Tasks={critical_nodes}")
+        logger.debug(f"CPM Completed: Makespan={project_makespan:.2f} hrs, Critical Tasks={critical_nodes}")
         return project_makespan, critical_nodes
 
     def build_precedence_edges(self) -> List[DependencyEdge]:
