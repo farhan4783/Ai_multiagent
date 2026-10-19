@@ -61,8 +61,9 @@ class GitChurnMiner:
                 check=True,
                 encoding="utf-8",
                 errors="replace",
+                stdin=subprocess.DEVNULL,
             )
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
             logger.error(f"Failed to execute git log: {e}")
             return []
 

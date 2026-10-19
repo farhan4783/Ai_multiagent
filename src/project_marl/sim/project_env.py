@@ -198,6 +198,115 @@ class ProjectSchedulingEnv(ParallelEnv):
         self.total_regressions: int = 0
         self.active_weights: np.ndarray = PM_WEIGHT_PRESETS[1].copy()
 
+        self._state_dim = 8 + 5 * self.num_developers + 8 * self.max_tasks + 5 + 1
+        self.state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self._state_dim,), dtype=np.float32)
+
+    @property
+    def state_size(self) -> int:
+        """Returns the dimensionality of the centralized global state vector."""
+        return self._state_dim
+
+    def state(self) -> np.ndarray:
+        """
+        Returns a global state vector for Centralized Training with Decentralized Execution (CTDE).
+        Contains global progress, developer resource states, task status vectors,
+        active PM objective weights, and structural fragility index.
+        """
+        s = np.zeros(self._state_dim, dtype=np.float32)
+        idx = 0
+        n = max(self.num_tasks_actual, 1)
+
+        # 1. Global Progress (8 floats)
+        s[0] = len(self.completed_tasks) / n
+        s[1] = min(self.current_time / max(self.deadline, 1.0), 3.0)
+        s[2] = 1.0 if self.current_time > self.deadline else 0.0
+        s[3] = min(self.total_tests_passed / n, 2.0)
+        s[4] = min(self.total_regressions / n, 2.0)
+        s[5] = min(self.total_conflicts / 10.0, 2.0)
+        s[6] = min(self.active_conflicts_count / 5.0, 2.0)
+        s[7] = self.step_count / max(self.max_steps, 1)
+        idx += 8
+
+        # 2. Developer Resource States (5 * num_devs floats)
+        for m in range(self.num_developers):
+            curr = self.dev_current_task[m]
+            s[idx] = 1.0 if curr is None else 0.0
+            s[idx + 1] = self.dev_modes[m] / 2.0
+            s[idx + 2] = self.dev_health[m]
+            s[idx + 3] = min(self.dev_tasks_completed[m] / 10.0, 3.0)
+            s[idx + 4] = self.dev_recent_fails[m]
+            idx += 5
+
+        # 3. Task Status Summaries (8 * max_tasks floats)
+        for i in range(self.max_tasks):
+            if i < self.num_tasks_actual:
+                t_id = self.task_list[i]
+                task = self.tasks[t_id]
+                s[idx] = 1.0 if task.is_ready(self.completed_tasks) else 0.0
+                s[idx + 1] = 1.0 if t_id in self.completed_tasks else 0.0
+                s[idx + 2] = 1.0 if task.status == ExecutionStatus.IN_PROGRESS else 0.0
+                s[idx + 3] = 1.0 if task.is_critical else 0.0
+                s[idx + 4] = min(task.estimated_duration / 40.0, 3.0)
+                s[idx + 5] = min(task.total_slack / 20.0, 3.0)
+                s[idx + 6] = task.historical_failure_rate
+                s[idx + 7] = min(self.task_buffers.get(t_id, 0.0) / 10.0, 2.0)
+            idx += 8
+
+        # 4. Active PM objective weights (5 floats)
+        s[idx:idx + 5] = self.active_weights[:5]
+        idx += 5
+
+        # 5. Global Fragility index (1 float)
+        s[idx] = min(self._compute_current_fragility() / 10.0, 3.0)
+
+        return s
+
+    def get_action_mask(self, agent: str) -> np.ndarray:
+        """
+        Returns a binary action mask (1.0 = valid, 0.0 = invalid) for the given agent.
+        """
+        act_space = self.action_spaces[agent]
+        mask = np.zeros(act_space.n, dtype=np.float32)
+
+        if agent == self.sched_agent:
+            # Task-agent dispatch: action = task_idx * num_devs + dev_idx
+            ready_tasks = set(t.task_id for t in self._get_ready_tasks())
+            for task_idx in range(self.num_tasks_actual):
+                t_id = self.task_list[task_idx]
+                if t_id in ready_tasks:
+                    for dev_idx in range(self.num_developers):
+                        if self.dev_current_task[dev_idx] is None:
+                            act = task_idx * self.num_developers + dev_idx
+                            mask[act] = 1.0
+            # NO_OP is always valid
+            mask[self.max_tasks * self.num_developers] = 1.0
+
+        elif agent == self.risk_agent_id:
+            # Buffer injection: valid for pending tasks
+            for task_idx in range(self.num_tasks_actual):
+                t_id = self.task_list[task_idx]
+                if self.tasks[t_id].status == ExecutionStatus.PENDING:
+                    mask[task_idx] = 1.0
+            # NO_OP is always valid
+            mask[self.max_tasks] = 1.0
+
+        elif agent in self.dev_agent_ids:
+            # All 3 modes (aggressive, balanced, conservative) are always valid
+            mask[:] = 1.0
+
+        elif agent == self.pm_agent_id:
+            # All 4 presets are always valid
+            mask[:] = 1.0
+
+        else:
+            mask[:] = 1.0
+
+        return mask
+
+    def get_action_masks(self) -> Dict[str, np.ndarray]:
+        """Returns action masks for all active agents."""
+        return {agent: self.get_action_mask(agent) for agent in self.agents}
+
     def observation_space(self, agent: str) -> spaces.Space:
         return self.observation_spaces[agent]
 
