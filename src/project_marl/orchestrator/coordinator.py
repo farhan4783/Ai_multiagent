@@ -672,6 +672,11 @@ class AutonomousProjectCoordinator:
             })
         return results
 
+    def query_memory(self, query_text: str, top_k: int = 3, target_module: Optional[str] = None):
+        """Convenience method to query the PromptQL RAG memory service."""
+        query = ContextQuery(query_text=query_text, top_k=top_k, target_module=target_module)
+        return self.rag_service.query(query)
+
     def reset(self, new_tasks: Optional[List[TaskNode]] = None) -> None:
         """Resets the coordinator and tears down all active worktrees."""
         self.workspace_orchestrator.teardown_all()

@@ -120,17 +120,19 @@ class GitWorktreeManager:
 
         base = base_branch or self.get_current_branch()
 
-        # Clean existing directory if stale
+        # Prune dead worktree references and clean existing directory
+        self._run_git(["worktree", "prune"], check=False)
         if wt_dir.exists():
+            self._run_git(["worktree", "remove", "--force", str(wt_dir)], check=False)
             self._force_remove_directory(wt_dir)
 
         # Delete branch if it exists from previous run
         self._run_git(["branch", "-D", branch_name], check=False)
 
-        # Add worktree
+        # Add worktree (-B creates or resets branch)
         self._run_git([
             "worktree", "add",
-            "-b", branch_name,
+            "-B", branch_name,
             str(wt_dir),
             base,
         ])
