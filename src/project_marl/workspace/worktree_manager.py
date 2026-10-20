@@ -102,10 +102,23 @@ class GitWorktreeManager:
         if key in self._worktrees and self._worktrees[key].exists():
             return self._worktrees[key]
 
-        base = base_branch or self.get_current_branch()
         safe_name = f"agent-{agent_id}-task-{task_id}".replace("/", "_")
         wt_dir = self.worktree_root / safe_name
         branch_name = f"agent/{agent_id}/{task_id}"
+
+        if not self.is_git_repo():
+            wt_dir.mkdir(parents=True, exist_ok=True)
+            info = WorktreeInfo(
+                agent_id=agent_id,
+                task_id=task_id,
+                branch_name=branch_name,
+                worktree_path=str(wt_dir),
+                base_branch=base_branch or "main",
+            )
+            self._worktrees[key] = info
+            return info
+
+        base = base_branch or self.get_current_branch()
 
         # Clean existing directory if stale
         if wt_dir.exists():
