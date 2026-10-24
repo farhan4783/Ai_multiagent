@@ -20,6 +20,7 @@ from project_marl.workspace.orchestrator import (
     WorkspaceOrchestrator,
     SandboxedWorkspace,
 )
+from project_marl.workspace.llm_client import LLMClient, LLMConfig
 
 __all__ = [
     "PortAllocator",
@@ -39,4 +40,7 @@ __all__ = [
     "ExecutionResult",
     "WorkspaceOrchestrator",
     "SandboxedWorkspace",
+    "LLMClient",
+    "LLMConfig",
 ]
+

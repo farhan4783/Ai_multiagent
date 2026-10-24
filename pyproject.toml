@@ -23,16 +23,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+api = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "websockets>=11.0",
+    "python-multipart>=0.0.6",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
     "black",
     "ruff",
-    "mypy"
+    "mypy",
+    "flake8"
 ]
 ml = [
     "torch>=2.0.0",
-    "torch-geometric"
+    "torchvision"
+]
+all = [
+    "project-marl[api,dev,ml]"
 ]
 
 [tool.setuptools.packages.find]
@@ -45,3 +55,17 @@ pythonpath = ["src"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

@@ -127,7 +127,7 @@ class ASTConflictResolver:
 
     def _get_modified_files_in_worktree(self, worktree_path: Path, base_path: Path) -> Set[str]:
         """Returns set of relative paths modified in the worktree compared to base."""
-        modified: Set[str] = []
+        modified: List[str] = []
         # Check via git if valid git directory
         try:
             res = subprocess.run(
@@ -237,7 +237,6 @@ class ASTConflictResolver:
             return True
         lines_a = file_a.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
         lines_b = file_b.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
-        lines_base = base_file.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True) if base_file.exists() else []
 
         matcher = difflib.SequenceMatcher(None, lines_a, lines_b)
         return matcher.ratio() < 0.95

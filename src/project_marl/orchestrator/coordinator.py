@@ -42,6 +42,7 @@ from project_marl.models.stgat import STGATModel
 from project_marl.sim.project_env import ProjectSchedulingEnv
 from project_marl.agents.policies import MultiAgentActorSwarm
 from project_marl.workspace.orchestrator import WorkspaceOrchestrator, SandboxedWorkspace
+from project_marl.workspace.llm_client import LLMClient
 from project_marl.memory.vector_store import VectorStore
 from project_marl.memory.wiki_graph import WikiGraph, InterfaceDriftEvent
 from project_marl.memory.rag_service import RAGService, ContextQuery
@@ -121,6 +122,7 @@ class AutonomousProjectCoordinator:
         # 7. Predictions & Cache
         self.latest_predictions: Dict[str, Any] = {}
         self.active_tasks_dispatched: Dict[str, str] = {}  # task_id -> agent_id
+        self.llm_client = LLMClient()
 
         self._initialize_agent_states()
         self._load_models_if_available()
@@ -462,16 +464,19 @@ class AutonomousProjectCoordinator:
         # Prepare modifications for impacted modules
         mod_files = {}
         for mod_id in task.impacted_modules:
-            file_name = Path(mod_id).name
-            clean_name = f"impl_{file_name}" if not file_name.endswith(".py") else file_name
-            content = (
-                f"# Autonomous MARL Implementation: {task.title}\n"
-                f"# Agent: {agent_id} | Task: {task.task_id}\n\n"
-                f"def execute_{task.task_id.lower().replace('-', '_')}():\n"
-                f"    '''{task.description}'''\n"
-                f"    return True\n"
+            target_path = mod_id if mod_id.endswith(".py") else f"{mod_id}.py"
+            # Read existing file content if available in worktree
+            read_res = workspace.mcp_server.read_file(target_path)
+            existing_code = read_res.content if not read_res.is_error else ""
+
+            # Synthesize updated code via LLMClient (with fallback)
+            synthesized = self.llm_client.synthesize_code(
+                task_title=task.title,
+                task_description=task.description,
+                file_path=target_path,
+                existing_code=existing_code,
             )
-            mod_files[clean_name] = content
+            mod_files[target_path] = synthesized
 
         if mod_files:
             workspace.runner.apply_code_modifications(

@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stgat-marl-system:latest
+    container_name: stgat_marl_orchestrator
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ORCHESTRATOR_HOST=0.0.0.0
+      - ORCHESTRATOR_PORT=8000
+      - NUM_DEVELOPER_AGENTS=3
+      - LOG_LEVEL=INFO
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    volumes:
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

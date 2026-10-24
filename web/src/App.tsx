@@ -94,40 +94,60 @@ export const App: React.FC = () => {
     }
   };
 
-  // Connect WebSocket for live streaming
+  // Connect WebSocket for live streaming with auto-reconnection
   useEffect(() => {
     fetchAllData();
 
     let ws: WebSocket | null = null;
-    try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
-      ws = new WebSocket(wsUrl);
+    let reconnectTimer: any = null;
+    let isDisposed = false;
 
-      ws.onopen = () => {
-        setConnectionStatus('connected');
-      };
+    const connectWs = () => {
+      if (isDisposed) return;
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
+        ws = new WebSocket(wsUrl);
 
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          setTelemetryLogs((prev) => [...prev.slice(-30), msg]);
-          if (msg.event_type === 'INITIAL_STATE' || msg.event_type === 'STEP_COMPLETED') {
-            fetchAllData();
+        ws.onopen = () => {
+          if (!isDisposed) setConnectionStatus('connected');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            setTelemetryLogs((prev) => [...prev.slice(-30), msg]);
+            if (msg.event_type === 'INITIAL_STATE' || msg.event_type === 'STEP_COMPLETED') {
+              fetchAllData();
+            }
+          } catch {
+            // ignore parse errors
           }
-        } catch {
-          // ignore parse errors
-        }
-      };
+        };
 
-      ws.onclose = () => {
-        setConnectionStatus('offline');
-      };
-    } catch {
-      setConnectionStatus('offline');
-    }
+        ws.onclose = () => {
+          if (!isDisposed) {
+            setConnectionStatus('offline');
+            reconnectTimer = setTimeout(connectWs, 3000);
+          }
+        };
+
+        ws.onerror = () => {
+          if (!isDisposed) setConnectionStatus('offline');
+        };
+      } catch {
+        if (!isDisposed) {
+          setConnectionStatus('offline');
+          reconnectTimer = setTimeout(connectWs, 3000);
+        }
+      }
+    };
+
+    connectWs();
 
     return () => {
+      isDisposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (ws) ws.close();
     };
   }, []);

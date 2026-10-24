@@ -132,8 +132,9 @@ class MCPAgentRunner:
 
         # Extract commit hash
         diff_res = self.server.run_command("git rev-parse HEAD")
-        if not diff_res.is_error:
-            commit_sha = diff_res.content.splitlines()[2] if len(diff_res.content.splitlines()) > 2 else None
+        if not diff_res.is_error and diff_res.content.strip():
+            rev_lines = [line.strip() for line in diff_res.content.splitlines() if line.strip()]
+            commit_sha = rev_lines[-1] if rev_lines else None
 
         elapsed = time.time() - start_time
         return ExecutionResult(
